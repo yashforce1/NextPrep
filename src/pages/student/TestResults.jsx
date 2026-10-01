@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../../context/AppContext.jsx'
+import { trackEvent } from '../../lib/analytics.js'
+import { downloadReport } from '../../lib/reportDownload.js'
 import { ArrowLeft, CheckCircle, Clock, Target, XCircle } from 'lucide-react'
 
 function StatCard({ label, value, color = 'var(--text-primary)' }) {
@@ -19,6 +21,13 @@ export default function TestResults() {
 
   const result = results.find(r => r.testId === testId && r.studentId === user?.id)
   const test = tests.find(t => t.id === testId)
+  const viewedResult = useRef(null)
+
+  useEffect(() => {
+    if (!result || viewedResult.current === result.id) return
+    trackEvent('report_viewed', { quiz_id: testId, report_type: 'individual', user_role: 'student' })
+    viewedResult.current = result.id
+  }, [result, testId])
 
   if (!result) {
     return (
@@ -43,6 +52,13 @@ export default function TestResults() {
     <div style={{ padding: 40 }} className="animate-fade-in-up">
       <button className="btn btn-ghost" style={{ marginBottom: 24 }} onClick={() => navigate('/student/my-tests')}>
         <ArrowLeft size={14} /> Back to My Tests
+      </button>
+
+      <button className="btn btn-primary" style={{ marginLeft: 12, marginBottom: 24 }} onClick={() => {
+        downloadReport(result)
+        trackEvent('report_downloaded', { quiz_id: testId, report_type: 'individual', file_format: 'csv' })
+      }}>
+        Download Report (CSV)
       </button>
 
       <div style={{ marginBottom: 32 }}>

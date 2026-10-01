@@ -5,6 +5,7 @@ import { AppProvider, useApp } from './context/AppContext.jsx'
 // Pages
 import LandingPage from './pages/LandingPage.jsx'
 import LoginPage from './components/shared/LoginPage.jsx'
+import AnalyticsTracker from './components/shared/AnalyticsTracker.jsx'
 
 // Admin pages
 import AdminLayout from './components/shared/AdminLayout.jsx'
@@ -72,6 +73,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <AppProvider>
+      <AnalyticsTracker />
       <AppRoutes />
     </AppProvider>
   )

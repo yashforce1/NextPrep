@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext.jsx'
+import { trackEvent } from '../../lib/analytics.js'
 import { generateHint } from '../../claude.js'
 import { Clock, AlertTriangle, ChevronLeft, ChevronRight, Flag, Send, Lightbulb, CheckCircle, X, SkipForward } from 'lucide-react'
 
@@ -23,6 +24,7 @@ export default function TakeTest() {
   const [submitted, setSubmitted] = useState(false)
   const timerRef = useRef(null)
   const startTimeRef = useRef(null)
+  const submittedRef = useRef(false)
 
   // Check if already completed
   const alreadyDone = results.find(r => r.testId === testId && r.studentId === user?.id)
@@ -31,8 +33,7 @@ export default function TakeTest() {
     if (started && !submitted) {
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
-          if (prev <= 1) { clearInterval(timerRef.current); handleSubmit(true); return 0 }
-          return prev - 1
+          return Math.max(0, prev - 1)
         })
       }, 1000)
     }
@@ -71,6 +72,8 @@ export default function TakeTest() {
   }
 
   const handleSubmit = useCallback((autoSubmit = false) => {
+    if (submittedRef.current) return
+    submittedRef.current = true
     clearInterval(timerRef.current)
     const timeTaken = Math.round((Date.now() - startTimeRef.current) / 60000)
 
@@ -112,6 +115,7 @@ export default function TakeTest() {
     const result = submitResult({
       testId, studentId: user.id, studentName: user.name,
       testName: test.title, stream: test.stream,
+      submissionType: autoSubmit ? 'automatic' : 'manual',
       score, totalMarks, percentage,
       correct, wrong, unattempted,
       timeTaken: Math.max(1, timeTaken),
@@ -122,6 +126,10 @@ export default function TakeTest() {
     setSubmitted(true)
     navigate(`/student/results/${testId}`)
   }, [answers, testQuestions, test, testId, user, submitResult, navigate])
+
+  useEffect(() => {
+    if (started && !submitted && timeLeft === 0) handleSubmit(true)
+  }, [started, submitted, timeLeft, handleSubmit])
 
   if (!test) return (
     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -178,7 +186,12 @@ export default function TakeTest() {
           </div>
 
           <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16 }}
-            onClick={() => { setStarted(true); startTimeRef.current = Date.now() }}>
+            onClick={() => {
+              if (startTimeRef.current !== null) return
+              setStarted(true)
+              startTimeRef.current = Date.now()
+              trackEvent('quiz_started', { quiz_id: testId, question_count: testQuestions.length })
+            }}>
             <Flag size={16} /> Begin Test
           </button>
         </div>

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { SAMPLE_QUESTIONS, SAMPLE_TESTS, SAMPLE_STUDENTS } from '../sampleData.js'
+import { trackEvent } from '../lib/analytics.js'
 
 const AppContext = createContext(null)
 
@@ -62,13 +63,26 @@ export function AppProvider({ children }) {
   const updateQuestion = (id, updates) => setQuestions(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q))
   const deleteQuestion = (id) => setQuestions(prev => prev.filter(q => q.id !== id))
 
-  const addTest = (t) => setTests(prev => [{ ...t, id: `t_${Date.now()}`, createdAt: new Date().toISOString() }, ...prev])
-  const updateTest = (id, updates) => setTests(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+  const addTest = (t) => {
+    const test = { ...t, id: `t_${Date.now()}`, createdAt: new Date().toISOString() }
+    setTests(prev => [test, ...prev])
+    const params = { quiz_id: test.id, question_count: test.questionIds?.length || 0, duration_minutes: test.duration, status: test.status }
+    trackEvent('quiz_created', params)
+    if (test.status === 'active') trackEvent('quiz_published', params)
+  }
+  const updateTest = (id, updates) => {
+    const existing = tests.find(t => t.id === id)
+    setTests(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+    if (existing && existing.status !== 'active' && updates.status === 'active') {
+      trackEvent('quiz_published', { quiz_id: id })
+    }
+  }
   const deleteTest = (id) => setTests(prev => prev.filter(t => t.id !== id))
 
   const submitResult = (result) => {
     const newResult = { ...result, id: `r_${Date.now()}`, submittedAt: new Date().toISOString() }
     setResults(prev => [...prev, newResult])
+    trackEvent('quiz_submitted', { quiz_id: result.testId, submission_type: result.submissionType })
     return newResult
   }
 

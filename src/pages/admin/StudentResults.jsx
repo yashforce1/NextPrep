@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { trackEvent } from '../../lib/analytics.js'
 import { useApp } from '../../context/AppContext.jsx'
 import { Search, TrendingUp, TrendingDown } from 'lucide-react'
 
@@ -6,6 +7,13 @@ export default function StudentResults() {
   const { results, students, tests } = useApp()
   const [selectedStudent, setSelectedStudent] = useState('All')
   const [selectedTest, setSelectedTest] = useState('All')
+  const trackedView = useRef(false)
+
+  useEffect(() => {
+    if (trackedView.current) return
+    trackEvent('report_viewed', { report_type: 'student_results', user_role: 'admin' })
+    trackedView.current = true
+  }, [])
 
   const filtered = results.filter(r => {
     const matchStudent = selectedStudent === 'All' || r.studentId === selectedStudent
